@@ -42,6 +42,7 @@ def benign_train(x, y, agent_model, logits, X_shard, Y_shard, sess, shared_weigh
 
     temp_sess.run(tf.global_variables_initializer())
 
+    # Initialize the model with global weights
     agent_model.set_weights(shared_weights)
     shard_size = len(X_shard)
 
@@ -50,6 +51,7 @@ def benign_train(x, y, agent_model, logits, X_shard, Y_shard, sess, shared_weigh
     else:
         num_mal_epochs = args.E
 
+    ## Train the local model
     for step in range(int(num_mal_epochs * shard_size / args.B)):
         offset = (step * args.B) % (shard_size - args.B)
         X_batch = X_shard[offset: (offset + args.B)]
@@ -62,6 +64,8 @@ def benign_train(x, y, agent_model, logits, X_shard, Y_shard, sess, shared_weigh
     final_weights = agent_model.get_weights()
     final_delta = final_weights - shared_weights
 
+    ## Evaluate the model
+    # TODO: This pat seems redundant
     agent_model.set_weights(final_weights)
 
     num_steps_temp = shard_size / args.B
@@ -177,6 +181,7 @@ def alternate_train(sess, t, optimizer, loss, mal_optimizer, mal_loss, x, y,
                 offset = (offset + l_step * args.B) % (shard_size - args.B)
                 X_batch = X_shard[offset: (offset + args.B)]
                 Y_batch = Y_shard[offset: (offset + args.B)]
+                # Question: What is the meaning of this uncat?
                 Y_batch_uncat = np.argmax(Y_batch, axis=1)
                 if 'dist' in args.mal_strat:
                     loss1_val, loss2_val, loss_val = sess.run(
@@ -475,9 +480,9 @@ def mal_agent(X_shard, Y_shard, mal_data_X, mal_data_Y, t, gpu_id, return_dict,
         agent_model = census_model_1()
 
     logits = agent_model(x)
-    prediction = tf.nn.softmax(logits)
-    eval_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
-        labels=y, logits=logits))
+    #prediction = tf.nn.softmax(logits)
+    #eval_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
+    #    labels=y, logits=logits))
 
     config = tf.ConfigProto(gpu_options=gv.gpu_options)
     # config.gpu_options.allow_growth = True

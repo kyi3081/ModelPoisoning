@@ -91,7 +91,7 @@ def init():
     parser.add_argument("--dataset", default='fMNIST',
                         help="dataset to be used")
     parser.add_argument("--model_num", type=int,
-                        default=0, help="model to be used")
+                        default=0, help="the number of model architecture to be used")
     parser.add_argument("--optimizer", default='adam',
                         help="optimizer to be used")
     parser.add_argument("--eta", type=float, default=1e-3,
@@ -100,7 +100,7 @@ def init():
     parser.add_argument("--C", type=float, default=1.0,
                         help="fraction of agents per time step")
     parser.add_argument("--E", type=int, default=5,
-                        help="epochs for each agent")
+                        help="number of training epochs for each agent")
     parser.add_argument("--steps", type=int, default=None,
                         help="GD steps per agent")
     parser.add_argument("--T", type=int, default=40, help="max time_steps")
@@ -109,19 +109,19 @@ def init():
     parser.add_argument("--lr_reduce", action='store_true')
     parser.add_argument("--mal", action='store_true')
     parser.add_argument("--mal_obj", default='single',
-                        help='Objective for malicious agent')
+                        help='Objective for malicious agent: single, multiple or all')
     parser.add_argument("--mal_strat", default='converge',
                         help='Strategy for malicious agent')
     parser.add_argument("--mal_num", type=int, default=1,
-                        help='Objective for simultaneous targeting')
+                        help='Number of targets')
     parser.add_argument("--mal_delay", type=int, default=0,
                         help='Delay for wait till converge')
     parser.add_argument("--mal_boost", type=float, default=10.0,
                         help='Boosting factor for alternating minimization attack')
     parser.add_argument("--mal_E", type=float, default=5,
-                        help='Benign training epochs for malicious agent')
+                        help='number of training epochs for malicious agent')
     parser.add_argument("--ls", type=int, default=1,
-                        help='Training steps for each malicious step')
+                        help='Ratio of benign to malicious steps in alt.min.attack')
     parser.add_argument("--gar", type=str, default='avg',
                         help='Gradient Aggregation Rule', choices=['avg', 'krum', 'coomed'])
     parser.add_argument("--rho", type=float, default=1e-4,

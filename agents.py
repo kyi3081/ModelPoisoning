@@ -23,7 +23,7 @@ def agent(i, X_shard, Y_shard, t, gpu_id, return_dict, X_test, Y_test, lr=None):
     args = gv.args
     if lr is None:
         lr = args.eta
-    # print('Agent %s on GPU %s' % (i,gpu_id))
+    print('Agent %s on GPU %s' % (i,gpu_id))
     # set environment
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
@@ -100,7 +100,7 @@ def agent(i, X_shard, Y_shard, t, gpu_id, return_dict, X_test, Y_test, lr=None):
         Y_batch = Y_shard[offset: (offset + args.B)]
         Y_batch_uncat = np.argmax(Y_batch, axis=1)
         _, loss_val = sess.run([optimizer,loss], feed_dict={x: X_batch, y: Y_batch_uncat})
-        if step % 1000 == 0:
+        if step % 20 == 0:
             print ('Agent %s, Step %s, Loss %s, offset %s' % (i,step,loss_val, offset))
             # local_weights = agent_model.get_weights()
             # eval_success, eval_loss = eval_minimal(X_test,Y_test,x, y, sess, prediction, loss)

@@ -1,6 +1,7 @@
 #########################
 # Purpose: Main function to perform federated training and all model poisoning attacks
 ########################
+import pdb
 
 import numpy as np
 import tensorflow as tf
@@ -26,13 +27,13 @@ def train_fn(X_train_shards, Y_train_shards, X_test, Y_test, return_dict,
     if args.mal:
         mal_agent_index = gv.mal_agent_index
 
-    unupated_frac = (args.k - num_agents_per_time) / float(args.k)
+    #unupated_frac = (args.k - num_agents_per_time) / float(args.k)
     t = 0
     mal_visible = []
     eval_loss_list = []
-    loss_track_list = []
     lr = args.eta
-    loss_count = 0
+    #loss_track_list = []
+    #loss_count = 0
     if args.gar == 'krum':
         krum_select_indices = []
 
@@ -69,6 +70,8 @@ def train_fn(X_train_shards, Y_train_shards, X_test, Y_test, return_dict,
                 item.join()
             agents_left = num_agents_per_time-k
             print('Agents left:%s' % agents_left)
+            print("return dict: {}".format(return_dict.keys()))
+            pdb.set_trace()
 
         if mal_active == 1:
             mal_visible.append(t)
@@ -226,7 +229,7 @@ def main():
                 p_eval = Process(target=eval_func, args=(
                     X_test, Y_test_uncat, t, return_dict, mal_data_X, mal_data_Y))
             else:
-            	p_eval = Process(target=eval_func, args=(
+                p_eval = Process(target=eval_func, args=(
                     X_test, Y_test_uncat, t, return_dict))
 
             p_eval.start()
