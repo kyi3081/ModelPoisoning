@@ -37,7 +37,8 @@ def train_fn(X_train_shards, Y_train_shards, X_test, Y_test, return_dict,
     if args.gar == 'krum':
         krum_select_indices = []
 
-    while return_dict['eval_success'] < gv.max_acc and t < args.T:
+    #while return_dict['eval_success'] < gv.max_acc and t < args.T:
+    while t < args.T:
         print('Time step %s' % t)
 
         process_list = []
@@ -52,8 +53,9 @@ def train_fn(X_train_shards, Y_train_shards, X_test, Y_test, return_dict,
             true_simul = min(simul_num,agents_left)
             print('training %s agents' % true_simul)
             for l in range(true_simul):
-                gpu_index = int(l / gv.max_agents_per_gpu)
-                gpu_id = gv.gpu_ids[gpu_index]
+                #gpu_index = int(l / gv.max_agents_per_gpu)
+                #gpu_id = gv.gpu_ids[gpu_index]
+                gpu_id = 0
                 i = curr_agents[k]
                 if args.mal is False or i != mal_agent_index:
                     p = Process(target=agent, args=(i, X_train_shards[i],
@@ -71,7 +73,6 @@ def train_fn(X_train_shards, Y_train_shards, X_test, Y_test, return_dict,
             agents_left = num_agents_per_time-k
             print('Agents left:%s' % agents_left)
             print("return dict: {}".format(return_dict.keys()))
-            pdb.set_trace()
 
         if mal_active == 1:
             mal_visible.append(t)
@@ -93,7 +94,8 @@ def train_fn(X_train_shards, Y_train_shards, X_test, Y_test, return_dict,
                             ben_delta += alpha_i * return_dict[str(curr_agents[k])]
 
                 np.save(gv.dir_name + 'ben_delta_t%s.npy' % t, ben_delta)
-                global_weights += alpha_i * return_dict[str(mal_agent_index)]
+                if str(mal_agent_index) in return_dict:
+                    global_weights += alpha_i * return_dict[str(mal_agent_index)]
                 global_weights += ben_delta
             else:
                 for k in range(num_agents_per_time):
@@ -155,7 +157,7 @@ def train_fn(X_train_shards, Y_train_shards, X_test, Y_test, return_dict,
                 bias_length = shape_size[3][i]
                 update_list.append(med_bias[b_count:b_count+bias_length].reshape(shape_size[1][i]))
                 b_count += bias_length
-            assert model_shape_size(update_list) == shape_size         
+            assert model_shape_size(update_list) == shape_size
             global_weights += update_list
 
         # Saving for the next update
@@ -242,7 +244,7 @@ def main():
 
 if __name__ == "__main__":
     gv.init()
-    tf.set_random_seed(777)
-    np.random.seed(777)
+    #tf.set_random_seed(777)
+    #np.random.seed(777)
     args = gv.args
-    main()
+    main(args)
