@@ -98,7 +98,7 @@ def init():
                         help="learning rate")
     parser.add_argument("--k", type=int, default=10, help="number of agents")
     parser.add_argument("--C", type=float, default=1.0,
-                        help="fraction of agents per time step")
+                        help="fraction of agents selected per time step")
     parser.add_argument("--E", type=int, default=5,
                         help="number of training epochs for each agent")
     parser.add_argument("--steps", type=int, default=None,
@@ -144,7 +144,8 @@ def init():
     if args.gpu_ids is not None:
         gpu_ids = args.gpu_ids
     else:
-        gpu_ids = [3,4]
+        #gpu_ids = [3,4]
+        gpu_ids = [0]
     global num_gpus
     num_gpus = len(gpu_ids)
 

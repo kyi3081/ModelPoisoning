@@ -16,24 +16,24 @@ from utils.eval_utils import eval_func, eval_minimal
 from malicious_agent import mal_agent
 from utils.dist_utils import collate_weights, model_shape_size
 
+# Train local models and the global model (by aggregating local model weight delta) & evaluate the global model
 def train_fn(X_train_shards, Y_train_shards, X_test, Y_test, return_dict,
              mal_data_X=None, mal_data_Y=None):
-    # Start the training process
+    ## Start the training process
+    # At each iteration, C of k agents are chosen randomly
     num_agents_per_time = int(args.C * args.k)
-    simul_agents = gv.num_gpus * gv.max_agents_per_gpu
-    simul_num = min(num_agents_per_time,simul_agents)
-    alpha_i = 1.0 / args.k
+    simul_agents = gv.num_gpus * gv.max_agents_per_gpu  # number of agents processed simultaneously
+    simul_num = min(num_agents_per_time,simul_agents)  # cap the simultaneously processed agents by the number of chosen agents
+    alpha_i = 1.0 / args.k  # weight for each agent when averaging (for weighted averaging method)
     agent_indices = np.arange(args.k)
     if args.mal:
+        # the last agent is malicious
         mal_agent_index = gv.mal_agent_index
 
-    #unupated_frac = (args.k - num_agents_per_time) / float(args.k)
-    t = 0
-    mal_visible = []
+    t = 0  # epoch tracker
+    mal_visible = []  # epochs when malicious agent is chosen
     eval_loss_list = []
     lr = args.eta
-    #loss_track_list = []
-    #loss_count = 0
     if args.gar == 'krum':
         krum_select_indices = []
 
@@ -42,24 +42,27 @@ def train_fn(X_train_shards, Y_train_shards, X_test, Y_test, return_dict,
         print('Time step %s' % t)
 
         process_list = []
-        mal_active = 0
+        mal_active = 0  # whether a malicious agent is chosen
         curr_agents = np.random.choice(agent_indices, num_agents_per_time,
-                                       replace=False)
+                                       replace=False)  # randomly chosen agents for each epoch
         print('Set of agents chosen: %s' % curr_agents)
 
         k = 0
         agents_left = 1e4
         while k < num_agents_per_time:
-            true_simul = min(simul_num,agents_left)
+            true_simul = min(simul_num,agents_left)  # cap the simultaneously processed agents by the number of left agents
             print('training %s agents' % true_simul)
+            # This loop is for parallel computing; if only one GPU, true_simul = 1
             for l in range(true_simul):
                 #gpu_index = int(l / gv.max_agents_per_gpu)
                 #gpu_id = gv.gpu_ids[gpu_index]
                 gpu_id = 0
                 i = curr_agents[k]
+                # If agent is not malicious, train normally
                 if args.mal is False or i != mal_agent_index:
                     p = Process(target=agent, args=(i, X_train_shards[i],
                                                 Y_train_shards[i], t, gpu_id, return_dict, X_test, Y_test,lr))
+                # If agent is malicious, train maliciously
                 elif args.mal is True and i == mal_agent_index:
                     p = Process(target=mal_agent, args=(X_train_shards[mal_agent_index],
                                                     Y_train_shards[mal_agent_index], mal_data_X, mal_data_Y, t, gpu_id, return_dict, mal_visible, X_test, Y_test))
@@ -79,12 +82,14 @@ def train_fn(X_train_shards, Y_train_shards, X_test, Y_test, return_dict,
 
         print('Joined all processes for time step %s' % t)
 
+        # Load previous epoch's global weights
         global_weights = np.load(gv.dir_name + 'global_weights_t%s.npy' % t, allow_pickle=True)
 
         if 'avg' in args.gar:
             if args.mal:
                 count = 0
                 for k in range(num_agents_per_time):
+                    # Save benign weight delta
                     if curr_agents[k] != mal_agent_index:
                         if count == 0:
                             ben_delta = alpha_i * return_dict[str(curr_agents[k])]
@@ -94,6 +99,7 @@ def train_fn(X_train_shards, Y_train_shards, X_test, Y_test, return_dict,
                             ben_delta += alpha_i * return_dict[str(curr_agents[k])]
 
                 np.save(gv.dir_name + 'ben_delta_t%s.npy' % t, ben_delta)
+                # Add weighted local weight delta to the global model
                 if str(mal_agent_index) in return_dict:
                     global_weights += alpha_i * return_dict[str(mal_agent_index)]
                 global_weights += ben_delta
@@ -160,11 +166,11 @@ def train_fn(X_train_shards, Y_train_shards, X_test, Y_test, return_dict,
             assert model_shape_size(update_list) == shape_size
             global_weights += update_list
 
-        # Saving for the next update
+        # Save the updated global weights
         np.save(gv.dir_name + 'global_weights_t%s.npy' %
                 (t + 1), global_weights)
 
-        # Evaluate global weight
+        # Evaluate global model
         if args.mal:
             p_eval = Process(target=eval_func, args=(
                 X_test, Y_test, t + 1, return_dict, mal_data_X, mal_data_Y), kwargs={'global_weights': global_weights})
@@ -193,10 +199,12 @@ def main():
     X_train_shards = np.split(X_train_permuted, args.k)
     Y_train_shards = np.split(Y_train_permuted, args.k)
 
+    # Create malicious data
     if args.mal:
         # Load malicious data
         mal_data_X, mal_data_Y, true_labels = mal_data_setup(X_test, Y_test, Y_test_uncat)
 
+    # Train local models and the global model & evaluate the global model
     if args.train:
         p = Process(target=master)
         p.start()
@@ -216,6 +224,7 @@ def main():
         else:
             _ = train_fn(X_train_shards, Y_train_shards, X_test, Y_test_uncat,
                          return_dict)
+    # Evaluate the global model
     else:
         manager = Manager()
         return_dict = manager.dict()
@@ -247,4 +256,4 @@ if __name__ == "__main__":
     #tf.set_random_seed(777)
     #np.random.seed(777)
     args = gv.args
-    main(args)
+    main()
