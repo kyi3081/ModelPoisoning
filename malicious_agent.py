@@ -15,15 +15,16 @@ from utils.dist_utils import est_accuracy, weight_constrain
 
 import global_vars as gv
 
+## Benign training method
 def benign_train(x, y, agent_model, logits, X_shard, Y_shard, sess, shared_weights):
     args = gv.args
     print('Training benign model at malicious agent')
 
+    # Set up the model parameters
     loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
         labels=y, logits=logits))
 
-    prediction = tf.nn.softmax(logits)
-
+    #prediction = tf.nn.softmax(logits)
     if args.optimizer == 'adam':
         optimizer = tf.train.AdamOptimizer(
             learning_rate=args.eta).minimize(loss)
@@ -46,6 +47,7 @@ def benign_train(x, y, agent_model, logits, X_shard, Y_shard, sess, shared_weigh
     agent_model.set_weights(shared_weights)
     shard_size = len(X_shard)
 
+    # num_mal_epochs = max(E, mal_E)
     if args.mal_E > args.E:
         num_mal_epochs = args.mal_E
     else:
@@ -65,7 +67,6 @@ def benign_train(x, y, agent_model, logits, X_shard, Y_shard, sess, shared_weigh
     final_delta = final_weights - shared_weights
 
     ## Evaluate the model
-    # TODO: This pat seems redundant
     agent_model.set_weights(final_weights)
 
     num_steps_temp = shard_size / args.B
@@ -85,7 +86,7 @@ def benign_train(x, y, agent_model, logits, X_shard, Y_shard, sess, shared_weigh
 
     return final_delta, loss_val_shard
 
-
+## Data poisoning attack (poisoned data given as input)
 def data_poison_train(sess, optimizer, loss, mal_optimizer, mal_loss, x, y, logits, X_shard, Y_shard, mal_data_X, mal_data_Y, agent_model, num_steps, start_offset):
     
     step = 0
@@ -122,7 +123,7 @@ def data_poison_train(sess, optimizer, loss, mal_optimizer, mal_loss, x, y, logi
             print('Benign: Loss - %s; Mal: Loss - %s' %
                   (loss_val, mal_loss_val))
 
-
+## Compute benign and malicious weight delta independently at each iteration
 def concat_train(sess, optimizer, loss, mal_optimizer, mal_loss, x, y, logits, X_shard, Y_shard, mal_data_X, mal_data_Y, agent_model, num_steps, start_offset):
 
     step = 0
@@ -131,19 +132,21 @@ def concat_train(sess, optimizer, loss, mal_optimizer, mal_loss, x, y, logits, X
     shard_size = len(X_shard)
     while step < num_steps:
         weight_step_start = np.array(agent_model.get_weights())
-        # Benign step
+        # Benign weight delta
         offset = (start_offset + step * args.B) % (shard_size - args.B)
         X_batch = X_shard[offset: (offset + args.B)]
         Y_batch = Y_shard[offset: (offset + args.B)]
         Y_batch_uncat = np.argmax(Y_batch, axis=1)
         sess.run(optimizer, feed_dict={x: X_batch, y: Y_batch_uncat})
         ben_delta_step = agent_model.get_weights() - weight_step_start
-        # Mal step
+        # Malicious weight delta
         agent_model.set_weights(weight_step_start)
         mal_loss_curr = sess.run([mal_loss], feed_dict={x: mal_data_X, y: mal_data_Y})
+        # If malicious loss on malicious data is positive (attack effective?), add both malicious and benign delta
         if mal_loss_curr > 0.0:
             sess.run(mal_optimizer, feed_dict={x: mal_data_X, y: mal_data_Y})
             mal_delta_step = agent_model.get_weights() - weight_step_start
+            # Combine benign delta and boosted malicious delta
             overall_delta_step = ben_delta_step + args.mal_boost * mal_delta_step
             agent_model.set_weights(weight_step_start+overall_delta_step)
         else:
@@ -157,6 +160,7 @@ def concat_train(sess, optimizer, loss, mal_optimizer, mal_loss, x, y, logits, X
                       (loss_val, mal_loss_val))
         step += 1
 
+## Malicious training post benign training
 def alternate_train(sess, t, optimizer, loss, mal_optimizer, mal_loss, x, y,
                     logits, X_shard, Y_shard, mal_data_X, mal_data_Y,
                     agent_model, num_steps, start_offset, loss1=None, loss2=None):
@@ -176,8 +180,6 @@ def alternate_train(sess, t, optimizer, loss, mal_optimizer, mal_loss, x, y,
         # Benign
         if step < num_steps:
             for l_step in range(num_local_steps):
-                # training
-                # print offset
                 offset = (offset + l_step * args.B) % (shard_size - args.B)
                 X_batch = X_shard[offset: (offset + args.B)]
                 Y_batch = Y_shard[offset: (offset + args.B)]
@@ -196,17 +198,22 @@ def alternate_train(sess, t, optimizer, loss, mal_optimizer, mal_loss, x, y,
                                                 x: mal_data_X, y: mal_data_Y})
         # Malicious, only if mal loss is non-zero
         if step >= 0 and mal_loss_val_bef > 0.0:
-            # print('Boosting mal at step %s' % step)
             weights_ben_local = np.array(agent_model.get_weights())
+            # Note: no difference for "dist" strategy
+            # Train the model with malicious opitmizer on malicious data
             if 'dist' in args.mal_strat:
                 sess.run([mal_optimizer], feed_dict={
                     x: mal_data_X, y: mal_data_Y})
             else:
                 sess.run([mal_optimizer], feed_dict={
-                                           x: mal_data_X, y: mal_data_Y})
+                    x: mal_data_X, y: mal_data_Y})
+
+            # "Auto": boosting factor is (1/args.mal_boost); otherwise boosting factor is args.mal_boost
             if 'auto' in args.mal_strat:
+                # Start from the latest weights of the model
                 step_weight_end = agent_model.get_weights()
                 if 'wt_o' in args.mal_strat:
+                    # Only for the even-indexed weight layers, apply the boosted malicious weight delta
                     for l in range(len(delta_mal_local)):
                         if l % 2 == 0:
                             delta_mal_local[l] += (1/args.mal_boost) * (step_weight_end[l]-weights_ben_local[l])
@@ -216,7 +223,7 @@ def alternate_train(sess, t, optimizer, loss, mal_optimizer, mal_loss, x, y,
             else:
                 delta_mal_local = agent_model.get_weights() - weights_ben_local
                 if 'wt_o' in args.mal_strat:
-                    # Boosting only weights
+                    # Only for the even-indexed weight layers, apply the boosted malicious weight delta
                     boosted_delta = delta_mal_local.copy()
                     for l in range(len(delta_mal_local)):
                         if l % 2 == 0:
@@ -244,10 +251,9 @@ def alternate_train(sess, t, optimizer, loss, mal_optimizer, mal_loss, x, y,
     return delta_mal_local
 
 
-
+## Training for malicious objective = "single" or "multiple"
 def mal_single_algs(x, y, logits, agent_model, shared_weights, sess, mal_data_X, mal_data_Y,
                     t, mal_visible, X_shard, Y_shard):
-    # alg_num = 2
     args = gv.args
 
     alpha_m = 1.0 / args.k
@@ -260,8 +266,8 @@ def mal_single_algs(x, y, logits, agent_model, shared_weights, sess, mal_data_X,
     start_weights = shared_weights
     constrain_weights = shared_weights
 
+    # Pre-optimization: start by adding the previous iteration's benign weight delta
     if len(mal_visible) >= 1 and 'prev_1' in args.mal_strat:
-        # Starting with weights that account for other agents
         start_weights = shared_weights + delta_other_prev
         print('Alg 1: Adding benign estimate')
 
@@ -269,6 +275,7 @@ def mal_single_algs(x, y, logits, agent_model, shared_weights, sess, mal_data_X,
         if 'dist_oth' in args.mal_strat and t>=1:
             constrain_weights = shared_weights + delta_other_prev
         else:
+            # Update the weight with benign training
             final_delta, _ = benign_train(
                 x, y, agent_model, logits, X_shard, Y_shard, sess, shared_weights)
             constrain_weights = shared_weights + final_delta
@@ -289,13 +296,12 @@ def mal_single_algs(x, y, logits, agent_model, shared_weights, sess, mal_data_X,
     prediction = tf.nn.softmax(logits)
 
     if 'dist' in args.mal_strat:
-        # Adding weight based regularization
+        # Adding weight based regularization (distance between current and last weights)
         loss, loss2, mal_loss = weight_constrain(loss1,mal_loss1,agent_model,constrain_weights,t)
     else:
         loss = loss1
         mal_loss = mal_loss1
         loss2 = None
-        weights_pl = None
 
     if 'adam' in args.optimizer:
         optimizer = tf.train.AdamOptimizer(learning_rate=args.eta).minimize(loss)
@@ -401,7 +407,7 @@ def mal_single_algs(x, y, logits, agent_model, shared_weights, sess, mal_data_X,
 
     return delta_mal, delta_naive_mal
 
-
+## Training for malicious objective = "all" (no target poisoning - ref. io_utils.py)
 def mal_all_algs(x, y, logits, agent_model, shared_weights, sess, mal_data_X, mal_data_Y, t):
     K.set_learning_phase(1)
     args = gv.args
@@ -436,6 +442,7 @@ def mal_all_algs(x, y, logits, agent_model, shared_weights, sess, mal_data_X, ma
     return final_delta
 
 
+# Malicious training/evaluation for epoch t
 def mal_agent(X_shard, Y_shard, mal_data_X, mal_data_Y, t, gpu_id, return_dict,
               mal_visible, X_test, Y_test):
     
@@ -444,6 +451,7 @@ def mal_agent(X_shard, Y_shard, mal_data_X, mal_data_Y, t, gpu_id, return_dict,
     shared_weights = np.load(gv.dir_name + 'global_weights_t%s.npy' % t, allow_pickle=True)
     
     holdoff_flag = 0
+    # If the confidence on a single target attack is high, hold off
     if 'holdoff' in args.mal_strat:
         print('Checking holdoff')
         if 'single' in args.mal_obj:
@@ -480,12 +488,7 @@ def mal_agent(X_shard, Y_shard, mal_data_X, mal_data_Y, t, gpu_id, return_dict,
         agent_model = census_model_1()
 
     logits = agent_model(x)
-    #prediction = tf.nn.softmax(logits)
-    #eval_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
-    #    labels=y, logits=logits))
-
     config = tf.ConfigProto(gpu_options=gv.gpu_options)
-    # config.gpu_options.allow_growth = True
     sess = tf.Session(config=config)
     K.set_session(sess)
     

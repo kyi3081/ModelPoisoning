@@ -16,7 +16,7 @@ import global_vars as gv
 
 # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=gv.mem_frac)
 
-
+## Train and evaluate a benign local model
 def agent(i, X_shard, Y_shard, t, gpu_id, return_dict, X_test, Y_test, lr=None):
     K.set_learning_phase(1)
 
@@ -24,10 +24,11 @@ def agent(i, X_shard, Y_shard, t, gpu_id, return_dict, X_test, Y_test, lr=None):
     if lr is None:
         lr = args.eta
     print('Agent %s on GPU %s' % (i,gpu_id))
-    # set environment
+    ## Set environment
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
 
+    ## Load global weights
     shared_weights = np.load(gv.dir_name + 'global_weights_t%s.npy' % t, allow_pickle=True)
     shard_size = len(X_shard)
 
@@ -39,9 +40,11 @@ def agent(i, X_shard, Y_shard, t, gpu_id, return_dict, X_test, Y_test, lr=None):
     if args.steps is not None:
         num_steps = args.steps
     else:
+        # num_steps = num_epochs * num_batches_per_shard
         num_steps = int(args.E) * shard_size / args.B
 
     # with tf.device('/gpu:'+str(gpu_id)):
+    ## Load data
     if args.dataset == 'census':
         x = tf.placeholder(shape=(None,
                               gv.DATA_DIM), dtype=tf.float32)
@@ -54,6 +57,7 @@ def agent(i, X_shard, Y_shard, t, gpu_id, return_dict, X_test, Y_test, lr=None):
                                   gv.NUM_CHANNELS), dtype=tf.float32)
         y = tf.placeholder(dtype=tf.int64)
 
+    ## Load model
     if 'MNIST' in args.dataset:
         agent_model = model_mnist(type=args.model_num)
     elif args.dataset == 'census':
@@ -69,7 +73,7 @@ def agent(i, X_shard, Y_shard, t, gpu_id, return_dict, X_test, Y_test, lr=None):
     else:
         loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
             labels=y, logits=logits))
-    prediction = tf.nn.softmax(logits)  
+    #prediction = tf.nn.softmax(logits)
 
     if args.optimizer == 'adam':
         optimizer = tf.train.AdamOptimizer(
@@ -88,9 +92,9 @@ def agent(i, X_shard, Y_shard, t, gpu_id, return_dict, X_test, Y_test, lr=None):
     sess.run(tf.global_variables_initializer())
 
     agent_model.set_weights(shared_weights)
-    # print('loaded shared weights')
 
     start_offset = 0
+    # Start training data from where we left off last time
     if args.steps is not None:
         start_offset = (t*args.B*args.steps) % (shard_size - args.B)
 
@@ -100,7 +104,7 @@ def agent(i, X_shard, Y_shard, t, gpu_id, return_dict, X_test, Y_test, lr=None):
         Y_batch = Y_shard[offset: (offset + args.B)]
         Y_batch_uncat = np.argmax(Y_batch, axis=1)
         _, loss_val = sess.run([optimizer,loss], feed_dict={x: X_batch, y: Y_batch_uncat})
-        if step % 20 == 0:
+        if step % 100 == 0:
             print ('Agent %s, Step %s, Loss %s, offset %s' % (i,step,loss_val, offset))
             # local_weights = agent_model.get_weights()
             # eval_success, eval_loss = eval_minimal(X_test,Y_test,x, y, sess, prediction, loss)
@@ -110,10 +114,10 @@ def agent(i, X_shard, Y_shard, t, gpu_id, return_dict, X_test, Y_test, lr=None):
     local_delta = local_weights - shared_weights
     
     # eval_success, eval_loss = eval_minimal(X_test,Y_test,x, y, sess, prediction, loss)
+    # Compute TPR and loss for the local model
     eval_success, eval_loss = eval_minimal(X_test,Y_test,local_weights)
 
-
-    print('Agent {}: success {}, loss {}'.format(i,eval_success,eval_loss))
+    print('Evaluation on test data - Agent {}: success {}, loss {}'.format(i,eval_success,eval_loss))
 
     return_dict[str(i)] = np.array(local_delta)
 
@@ -121,7 +125,7 @@ def agent(i, X_shard, Y_shard, t, gpu_id, return_dict, X_test, Y_test, lr=None):
 
     return
 
-
+## Initialize and save the global model
 def master():
     K.set_learning_phase(1)
 
