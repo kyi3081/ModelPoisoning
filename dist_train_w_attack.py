@@ -96,7 +96,8 @@ def train_fn(X_train_shards, Y_train_shards, X_test, Y_test, return_dict,
                             np.save(gv.dir_name + 'ben_delta_sample%s.npy' % t, return_dict[str(curr_agents[k])])
                             count += 1
                         else:
-                            ben_delta += alpha_i * return_dict[str(curr_agents[k])]
+                            if str(curr_agents[k]) in return_dict:
+                                ben_delta += alpha_i * return_dict[str(curr_agents[k])]
 
                 np.save(gv.dir_name + 'ben_delta_t%s.npy' % t, ben_delta)
                 # Add weighted local weight delta to the global model
