@@ -1,6 +1,7 @@
 #########################
 # Purpose: Model definitions and other utlities for MNIST and Fashion MNIST
 ########################
+import os
 
 from keras.datasets import mnist
 from keras.models import Sequential, model_from_json
@@ -8,6 +9,7 @@ from keras.layers import Dense, Dropout, Activation, Flatten, Input
 from keras.layers import Conv2D, MaxPooling2D, BatchNormalization
 from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import np_utils
+from keras.datasets import fashion_mnist
 
 from fmnist import load_fmnist
 import global_vars as gv
@@ -20,13 +22,19 @@ def data_mnist(one_hot=True):
     """
     Preprocess MNIST dataset
     """
+    #DATA_PATH = "./data"
+    #if not(os.path.exists(DATA_PATH)):
+    #    os.mkdir(DATA_PATH)
+
     # the data, shuffled and split between train and test sets
     if gv.args.dataset == 'MNIST':
         (X_train, y_train), (X_test, y_test) = mnist.load_data()
 
     elif gv.args.dataset == 'fMNIST':
-        X_train, y_train = load_fmnist('/datasets/home/69/569/y5kim/data', kind='train')
-        X_test, y_test = load_fmnist('/datasets/home/69/569/y5kim/data', kind='t10k')
+        (X_train, y_train), (X_test, y_test) = fashion_mnist.load_data()
+
+        #X_train, y_train = load_fmnist('/datasets/home/69/569/y5kim/data', kind='train')
+        #X_test, y_test = load_fmnist('/datasets/home/69/569/y5kim/data', kind='t10k')
 
 
     X_train = X_train.reshape(X_train.shape[0],

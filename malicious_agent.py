@@ -242,9 +242,9 @@ def alternate_train(sess, t, optimizer, loss, mal_optimizer, mal_loss, x, y,
             print('Benign: Loss - %s; Mal: Loss_bef - %s, Loss_aft - %s' %
                   (loss_val, mal_loss_val_bef, mal_loss_val_aft))
 
-        if step % 100 == 0 and t < 5:
-            np.save(gv.dir_name + 'mal_delta_t%s_step%s.npy' %
-                    (t, step), delta_mal_local)
+        #if step % 100 == 0 and t < 5:
+        #    np.save(gv.dir_name + 'mal_delta_t%s_step%s.npy' %
+        #            (t, step), delta_mal_local)
 
         step += num_local_steps
     

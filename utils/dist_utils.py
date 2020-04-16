@@ -47,33 +47,27 @@ def est_accuracy(mal_visible, t):
     args = gv.args
 
     delta_other_prev = None
-
+    # If the malicious agent has been chosen in a previous epoch
     if len(mal_visible) >= 1:
-        # Getting other agents' delta in the previous time step
+        # Choose the latest epoch when the adv was chosen
         mal_prev_t = mal_visible[-1]
         print('Loading from previous iteration %s' % mal_prev_t)
-        # mal_weights_prev = np.load(gv.dir_name+'malicious_model_weights_t%s.npy' % mal_prev_t)
-        # shared_weights_prev = np.load(gv.dir_name+'global_weights_t%s.npy' % mal_prev_t)
-        # delta_other_prev_1 = shared_weights - shared_weights_prev - alpha_m * (mal_weights_prev - shared_weights_prev)
-        # np.save(gv.dir_name+'delta_other_%s.npy' % t, delta_other_prev)
+
         delta_other_prev = np.load(
             gv.dir_name + 'ben_delta_t%s.npy' % mal_prev_t, allow_pickle=True)
         delta_other_prev = delta_other_prev / (t - mal_prev_t)
         print('Divisor: %s' % (t - mal_prev_t))
-        # est_accuracy_l2 = 0.0
-        # for i in range(len(delta_other_prev_1)):
-        #   est_accuracy_l2 += np.linalg.norm(delta_other_prev_1[i]-delta_other_prev_2[i])
-        # print('Diff. in two methods of est: %s' % est_accuracy_l2)
 
-    # Checking accuracy of estimate after time step 2
+    # Check the accuracy of estimate after time step 2
     if len(mal_visible) >= 3:
         mal_prev_prev_t = mal_visible[-2]
         if mal_prev_prev_t >= args.mal_delay:
-            # delta_other_prev_prev = np.load(gv.dir_name+'delta_other_%s.npy' % mal_prev_prev_t)
             delta_other_prev_prev = np.load(
                 gv.dir_name + 'ben_delta_t%s.npy' % mal_prev_prev_t, allow_pickle=True)
+            # Subtract the penultimate benign delta from the last delta
             ben_delta_diff = delta_other_prev - delta_other_prev_prev
             est_accuracy_l2 = 0.0
+            # For each weight layer, add the norm of the delta differences
             for i in range(len(ben_delta_diff)):
                 est_accuracy_l2 += np.linalg.norm(ben_delta_diff[i])
             print('Accuracy of estimate on round %s: %s' %
@@ -83,13 +77,13 @@ def est_accuracy(mal_visible, t):
             write_dict['est_accuracy_l2'] = est_accuracy_l2
             file_write(write_dict, purpose='est_accuracy_log')
 
+    # Return the estimated previous iteration with adversary's benign weight delta
     return delta_other_prev
 
 def weight_constrain(loss1,mal_loss1,agent_model,constrain_weights,t):
     args = gv.args
-    # Adding weight based regularization
+    # Add weight based regularization
     loss2 = tf.constant(0.0)
-    # mal_loss2 = tf.constant(0.0)
     layer_count = 0
     if 'dist_oth' in args.mal_strat and t<1:
         rho = 0.0
@@ -98,7 +92,6 @@ def weight_constrain(loss1,mal_loss1,agent_model,constrain_weights,t):
     for layer in agent_model.layers:
         counter = 0
         for weight in layer.weights:
-            # print(counter)
             constrain_weight_curr = tf.convert_to_tensor(
                 constrain_weights[layer_count], dtype=tf.float32)
             delta_constrain = (weight - constrain_weight_curr)
