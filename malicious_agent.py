@@ -466,8 +466,9 @@ def mal_agent(X_shard, Y_shard, mal_data_X, mal_data_Y, t, gpu_id, return_dict,
 
     print('Malicious Agent on GPU %s' % gpu_id)
     # set enviornment
-    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
+    #os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    #os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
+    os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 
     if args.dataset == 'census':
         x = tf.placeholder(shape=(None,
