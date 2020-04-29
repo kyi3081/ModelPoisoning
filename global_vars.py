@@ -130,6 +130,7 @@ def init():
                         help='Data repetitions for data poisoning')
     parser.add_argument('--gpu_ids', nargs='+', type=int, default=None,
                         help='GPUs to run on')
+    parser.add_argument("--poison_epochs", help="delimited list of poison epochs", type=str, default=None)
 
 
     global args
@@ -139,6 +140,11 @@ def init():
     if args.mal:
         global mal_agent_index
         mal_agent_index = args.k - 1
+
+    # epochs to add adversaries
+    global poison_epochs
+    if args.poison_epochs is not None:
+        poison_epochs = [int(item) for item in args.poison_epochs.split(',')]
 
     global gpu_ids
     if args.gpu_ids is not None:

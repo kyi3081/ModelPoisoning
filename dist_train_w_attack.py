@@ -29,6 +29,7 @@ def train_fn(X_train_shards, Y_train_shards, X_test, Y_test, return_dict,
     if args.mal:
         # the last agent is malicious
         mal_agent_index = gv.mal_agent_index
+        benign_indices = np.delete(agent_indices, mal_agent_index)
 
     t = 0  # epoch tracker
     mal_visible = []  # epochs when malicious agent is chosen
@@ -43,8 +44,19 @@ def train_fn(X_train_shards, Y_train_shards, X_test, Y_test, return_dict,
 
         process_list = []
         mal_active = 0  # whether a malicious agent is chosen
-        curr_agents = np.random.choice(agent_indices, num_agents_per_time,
-                                       replace=False)  # randomly chosen agents for each epoch
+        if not(gv.poison_epochs):
+            curr_agents = np.random.choice(agent_indices, num_agents_per_time,
+                                           replace=False)  # randomly chosen agents for each epoch
+        else:
+            # Include the adversary in poison epochs
+            if t in gv.poison_epochs:
+                curr_agents = np.random.choice(benign_indices, num_agents_per_time-1,
+                                               replace=False)
+                curr_agents = np.insert(curr_agents, -1, mal_agent_index)
+
+            else:
+                curr_agents = np.random.choice(benign_indices, num_agents_per_time, replace=False)
+
         print('Set of agents chosen: %s' % curr_agents)
 
         k = 0
