@@ -10,18 +10,18 @@ import tensorflow as tf
 def dir_name_fn(args):
 
     # Setting directory name to store computed weights
-    dir_name = '/artifacts/weights/%s/model_%s/%s/k%s_E%s_B%s_C%1.0e_lr%.1e' % (
-        args.dataset, args.model_num, args.optimizer, args.k, args.E, args.B, args.C, args.eta)
-    # dir_name = 'weights/k{}_E{}_B{}_C{%e}_lr{}'
+    #dir_name = '/artifacts/weights/%s/model_%s/%s/k%s_E%s_B%s_C%1.0e_lr%.1e' % (
+    #    args.dataset, args.model_num, args.optimizer, args.k, args.E, args.B, args.C, args.eta)
+    dir_name = 'weights/k{}_E{}_B{}_C{%e}_lr{}'
     output_file_name = 'output'
 
-    output_dir_name = '/artifacts/output_files/%s/model_%s/%s/k%s_E%s_B%s_C%1.0e_lr%.1e' % (
+    output_dir_name = 'output_files/%s/model_%s/%s/k%s_E%s_B%s_C%1.0e_lr%.1e' % (
         args.dataset, args.model_num, args.optimizer, args.k, args.E, args.B, args.C, args.eta)
 
-    figures_dir_name = '/artifacts/figures/%s/model_%s/%s/k%s_E%s_B%s_C%1.0e_lr%.1e' % (
+    figures_dir_name = 'figures/%s/model_%s/%s/k%s_E%s_B%s_C%1.0e_lr%.1e' % (
         args.dataset, args.model_num, args.optimizer, args.k, args.E, args.B, args.C, args.eta)
 
-    interpret_figs_dir_name = '/artifacts/interpret_figs/%s/model_%s/%s/k%s_E%s_B%s_C%1.0e_lr%.1e' % (
+    interpret_figs_dir_name = 'interpret_figs/%s/model_%s/%s/k%s_E%s_B%s_C%1.0e_lr%.1e' % (
         args.dataset, args.model_num, args.optimizer, args.k, args.E, args.B, args.C, args.eta)
 
     if args.gar != 'avg':

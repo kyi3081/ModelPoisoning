@@ -129,7 +129,8 @@ def train_fn(X_train_shards, Y_train_shards, X_test, Y_test, return_dict,
                 # weights_curr, bias_curr = collate_weights(return_dict[str(curr_agents[k])])
                 weights_curr, bias_curr = collate_weights(return_dict[str(k)])
                 collated_weights.append(weights_curr)
-                collated_bias.append(collated_bias)
+                collated_bias.append(bias_currs)
+                #collated_bias.append(collated_bias)
             score_array = np.zeros(num_agents_per_time)
             for k in range(num_agents_per_time):
                 dists = []
